@@ -1,4 +1,5 @@
 (*==========timed data distribution stream========*)
+Require Import Arith.
 Require Import Reals.
 Require Import Streams.
 Require Export Utheory.
@@ -15,6 +16,14 @@ Definition PrL {A B: Type}(pair: A  * B) :=
 Definition PrR {A B: Type}(pair: A * B ) :=
   match pair with
   | (a, b) => b
+  end.
+Definition DPrR {A B C: Type}(pair: A * (B*C) ) :=
+  match pair with
+  | (a, (b,c)) => c
+  end.
+Definition LPrR {A B C: Type}(pair: A * (B*C) ) :=
+  match pair with
+  | (a, (b,c)) => b
   end.
 
 (*increasing time moments*)
@@ -43,6 +52,8 @@ Definition Tgtt(s1 s2:Stream TDD)(t:Time) : Prop :=
        (*the judgement about data*)
 Definition Deq(s1 s2:Stream TDD) : Prop :=
   forall n:nat, PrR(Str_nth n s1) = PrR(Str_nth n s2).
+     
+
 (*==============channel=============*)
 Open Scope U_scope.
                          (*Basic channel*)
@@ -156,8 +167,8 @@ Axiom CptSync_coind:
   ( PrL(hd Output) = PrL (hd Input) 
   /\
     (  
-       PrR(hd Output) = (c, [1-] (([1-] p) * (PrR(PrR(hd Input)))))
-    \/ PrR(hd Output) = (PrL(PrR(hd Input)), ([1-] p) * (PrR(PrR(hd Input))))
+       PrR(hd Output) = (c, [1-](([1-]p) * (DPrR(hd Input))))
+    \/ PrR(hd Output) = (LPrR(hd Input), ([1-]p) * (DPrR(hd Input)))
     )
   /\
     CptSync (tl Input) (tl Output) p
@@ -165,7 +176,7 @@ Axiom CptSync_coind:
 
 Definition RdmSync(Input Output:Stream TDD):Prop :=
   (forall n:nat, PrR (Str_nth n Output) = (1%nat, [1/]1+1) \/
-  PrR (Str_nth n Output) = (O%nat, [1/]1+1))
+  PrR (Str_nth n Output) = (O, [1/]1+1))
   /\ Teq Input Output.
 
 Parameter ProbLossy : Stream TDD -> Stream TDD -> U -> Prop.
@@ -174,20 +185,20 @@ Axiom ProbLossy_coind:
   ProbLossy Input Output q ->
   (
     (PrL(hd Output) = PrL(hd Input) /\ 
-     PrR(hd Output) = (PrL(PrR(hd Input)), PrR(PrR(hd Input)) * ([1-] q))  /\  
+     PrR(hd Output) = (LPrR(hd Input), DPrR(hd Input) * ([1-] q))  /\  
      ProbLossy (tl Input) (tl Output) q)
     \/
     ProbLossy (tl Input) Output q
   ).
 
 Parameter FtyFIFO1 : Stream TDD -> Stream TDD -> U -> Prop.
-Axiom  FtyFIFO1_coind:
+Axiom FtyFIFO1_coind:
   forall (Input Output:Stream TDD) (r:U),
   FtyFIFO1 Input Output r -> 
   (
     (PrL(hd Output) > PrL(hd Input) /\ 
      PrL(hd Output) < PrL(hd (tl Input)) /\
-     PrR(hd Output) = (PrL(PrR(hd Input)), PrR(PrR(hd Input)) * ([1-] r)) /\
+     PrR(hd Output) = (LPrR(hd Input), DPrR(hd Input) * ([1-] r)) /\
      FtyFIFO1 (tl Input) (tl Output) r)
      \/
     FtyFIFO1 (tl Input) Output r
@@ -212,19 +223,7 @@ Open Scope R_scope.
 Definition t_FIFO1 (M N:Stream TDD) (t:Time):Prop :=
   exists R S:Stream TDD, 
   (FIFO1 M R) /\ (SyncDrain R S) /\ (Timert M S t) /\ (Sync R N).
-
-Variable t:Time.
-Variables M N R S D C:Stream TDD.
-(*Lemma tFIFO1_eq: (t_FIFO1 M N t) <->  exists (R S:Stream TDD),
-  (FIFO1 M R) /\ (SyncDrain R S) /\ (Timert M S t) /\ (Sync R N).
-Proof.
-split.
-intro.
-auto.
-intro.
-auto.
-Qed.*)
-
+  
 Variable E: Stream TDD.
 
 Lemma RSync_tFIFO_eq: forall (A B: Stream TDD) (t:Time),  exists E: Stream TDD, 
@@ -232,7 +231,7 @@ Lemma RSync_tFIFO_eq: forall (A B: Stream TDD) (t:Time),  exists E: Stream TDD,
      <->
      (RdmSync A E) /\ (exists (D C:Stream TDD), (FIFO1 E D)  /\ (SyncDrain D C) /\ (Timert E C t) /\ (Sync D B)).
 Proof.
-intros A B t0.
+intros A B t.
 exists E.
 split.
 
@@ -256,7 +255,7 @@ Lemma tFIFO_RSync_eq: forall (A B: Stream TDD) (t:Time), exists E: Stream TDD,
      <->
      (exists (D C:Stream TDD), (FIFO1 A D)  /\ (SyncDrain D C) /\ (Timert A C t) /\ (Sync D E)) /\ (RdmSync E B).
 Proof.
-intros A B t0.
+intros A B t.
 exists E.
 split.
 
@@ -297,9 +296,9 @@ Lemma trans_t_eq: forall (s1 s2 s3:Stream TDD)(t:Time),
 Proof.
 intros.
 destruct H.
-assert (forall n:nat, PrL(Str_nth n s1) + t0  = PrL(Str_nth n s2)).
+assert (forall n:nat, PrL(Str_nth n s1) + t  = PrL(Str_nth n s2)).
 auto.
-assert (forall n:nat, PrL(Str_nth n s1) + t0  = PrL(Str_nth n s3)).
+assert (forall n:nat, PrL(Str_nth n s1) + t  = PrL(Str_nth n s3)).
 auto.
 assert (forall n:nat, PrL(Str_nth n s2)  = PrL(Str_nth n s3)).
 intro.
@@ -313,16 +312,16 @@ Lemma trans_eq_t: forall (s1 s2 s3:Stream TDD)(t:Time),
 Proof.
 intros.
 destruct H.
-assert (forall n:nat, PrL(Str_nth n s1) + t0  = PrL(Str_nth n s3)).
+assert (forall n:nat, PrL(Str_nth n s1) + t  = PrL(Str_nth n s3)).
 auto.
-assert (forall n:nat, PrL(Str_nth n s2) + t0  = PrL(Str_nth n s3)).
+assert (forall n:nat, PrL(Str_nth n s2) + t  = PrL(Str_nth n s3)).
 auto.
-assert (forall n:nat, PrL(Str_nth n s1) + t0 = PrL(Str_nth n s2) + t0).
+assert (forall n:nat, PrL(Str_nth n s1) + t = PrL(Str_nth n s2) + t).
 intro.
 rewrite H1.
 rewrite H2.
 reflexivity.
-assert (forall n:nat, (PrL(Str_nth n s1) + t0 = PrL(Str_nth n s2) + t0)
+assert (forall n:nat, (PrL(Str_nth n s1) + t = PrL(Str_nth n s2) + t)
          -> (PrL(Str_nth n s1) = PrL(Str_nth n s2))).
 admit.
 assert (forall n:nat, PrL(Str_nth n s1) = PrL(Str_nth n s2)).
@@ -334,6 +333,8 @@ Qed.
 
 Hypothesis tFIFO1_eq: forall (A B:Stream TDD) (t:Time), t_FIFO1 A B t <-> (Deq A B) /\ (Teqt A B t).
 Variables A B A_t B_t: Stream TDD.
+Variables R: Stream TDD.
+Variable t:Time.
 Hypothesis transfer_eqt : forall (s1 s2 s3:Stream TDD)(t:Time),
    (Teq s1 s2) /\ (Teqt s2 s3 t) -> (Teqt s1 s3 t).
 Hypothesis transfer_R_eqt : forall (s1 s2 s3:Stream TDD)(t:Time),
