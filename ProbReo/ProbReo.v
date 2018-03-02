@@ -167,7 +167,7 @@ Axiom CptSync_coind:
   ( PrL(hd Output) = PrL (hd Input) 
   /\
     (  
-       PrR(hd Output) = (c, [1-](([1-]p) * (DPrR(hd Input))))
+       PrR(hd Output) = (c, p * (DPrR(hd Input)))
     \/ PrR(hd Output) = (LPrR(hd Input), ([1-]p) * (DPrR(hd Input)))
     )
   /\
